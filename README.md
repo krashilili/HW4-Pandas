@@ -1,17 +1,111 @@
 
-# Heroes Of Pymoli Data Analysis
-* Of the 1163 active players, the vast majority are male (82%). There also exists, a smaller, but notable proportion of female players (16%).
+# Heroes Of Pymoli Data Analysis (Solved)
+* Observed trend #1 - Of the 573 people in the dataset, the vast majority are male (81.15%). There also exists, a smaller, but notable proportion of female players (17.45%).
 
-* Our peak age demographic falls between 20-24 (42%) with secondary groups falling between 15-19 (17.80%) and 25-29 (15.48%).
+* Observed trend #2 - Our peak purchase over age demographics is in the age group of '20-24' which has 336 purchase count and $978.77 of total purchase value.
 
-* Our players are putting in significant cash during the lifetime of their gameplay. Across all major age and gender demographics, the average purchase for a user is roughly $491.   
+* Observed trend #3 - The total purchase value of Male (1,867.68 dollars) is more than female (382.91 dollars).  
 -----
+
+
+```python
+import pandas as pd
+json_file = "purchase_data.json"
+df = pd.read_json(json_file)
+df.head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Age</th>
+      <th>Gender</th>
+      <th>Item ID</th>
+      <th>Item Name</th>
+      <th>Price</th>
+      <th>SN</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>38</td>
+      <td>Male</td>
+      <td>165</td>
+      <td>Bone Crushing Silver Skewer</td>
+      <td>3.37</td>
+      <td>Aelalis34</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>21</td>
+      <td>Male</td>
+      <td>119</td>
+      <td>Stormbringer, Dark Blade of Ending Misery</td>
+      <td>2.32</td>
+      <td>Eolo46</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>34</td>
+      <td>Male</td>
+      <td>174</td>
+      <td>Primitive Blade</td>
+      <td>2.46</td>
+      <td>Assastnya25</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>21</td>
+      <td>Male</td>
+      <td>92</td>
+      <td>Final Critic</td>
+      <td>1.36</td>
+      <td>Pheusrical25</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>23</td>
+      <td>Male</td>
+      <td>63</td>
+      <td>Stormfury Mace</td>
+      <td>1.27</td>
+      <td>Aela59</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
 
 ## Player Count
 
 
 ```python
-
+total_players = df['SN'].unique()
+total_players_count = total_players.size
+player_count_df = pd.DataFrame([{'Total Players': total_players_count}])
+# df w/ duplicates removed
+removed_duplicates_df = df.drop_duplicates(['SN'], keep='first')
+player_count_df
 ```
 
 
@@ -53,7 +147,20 @@
 
 
 ```python
+# format
+money_fmt = "${:,.2f}".format
+fmt = '{:.2f}'.format
 
+unique_items = df['Item ID'].unique()
+unique_items_count = unique_items.size
+average_price = df['Price'].sum()/df['Price'].count()
+purchases_count = df['Item ID'].count()
+total_revenue = df['Price'].sum()
+
+purchase_analysis_df = pd.DataFrame([[unique_items_count,money_fmt(average_price), purchases_count, money_fmt(total_revenue)]],
+                                     columns=['Number of Unique Items','Average Price','Number of Purchases','Total Revenue'])
+# display
+purchase_analysis_df
 ```
 
 
@@ -101,7 +208,18 @@
 
 
 ```python
+# use the built-in normalize in value_counts to get the percentage
+percents = removed_duplicates_df['Gender'].value_counts(normalize=True)*100
+# total count
+total = removed_duplicates_df['Gender'].value_counts()
 
+gender_demographics =total.to_frame()
+gender_demographics= gender_demographics.rename(columns={'Gender':'Total Count'})
+gender_demographics['Percentage of Player'] = percents.map(fmt)
+
+# change the column order and display the df
+gender_demographics = gender_demographics[['Percentage of Player','Total Count']]
+gender_demographics
 ```
 
 
@@ -125,7 +243,7 @@
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>Percentage of Players</th>
+      <th>Percentage of Player</th>
       <th>Total Count</th>
     </tr>
   </thead>
@@ -156,7 +274,27 @@
 
 
 ```python
+# group by gender 
+group_by_gender = df.groupby(['Gender'])
+purchase_analysis_df = pd.DataFrame()
+# purchase count
+purchase_analysis_df['Purchase Count']=group_by_gender['Item ID'].count()
+# total purchase value
+purchase_analysis_df['Total Purchase Value'] = group_by_gender['Price'].sum()
+# average purchase price
+purchase_analysis_df['Average Purchase Price'] = purchase_analysis_df['Total Purchase Value']/purchase_analysis_df['Purchase Count']
+# normalization
+purchase_analysis_df['Normalized Totals'] = purchase_analysis_df['Total Purchase Value']/gender_demographics['Total Count']
 
+# formatting
+purchase_analysis_df['Total Purchase Value'] = purchase_analysis_df['Total Purchase Value'].map(money_fmt)
+purchase_analysis_df['Average Purchase Price'] = purchase_analysis_df['Average Purchase Price'].map(money_fmt)
+purchase_analysis_df['Normalized Totals'] = purchase_analysis_df['Normalized Totals'].map(money_fmt)
+
+# change the column order and display
+purchase_analysis_df = purchase_analysis_df[['Purchase Count', 'Average Purchase Price', \
+                                             'Total Purchase Value','Normalized Totals']]
+purchase_analysis_df
 ```
 
 
@@ -225,7 +363,23 @@
 
 
 ```python
+max_age = removed_duplicates_df['Age'].max()
+# create bins and categories
+bins = [0,9,14,19,24,29,34,39,max_age]
+age_categories = ['<10','10-14','15-19','20-24','25-29','30-34','35-39','40+']
+# cerate a df for age demographics
+age_demographics_df = pd.DataFrame()
+# categorize
+categorized_by_age_df = pd.cut(removed_duplicates_df['Age'], bins, labels=age_categories, right=True)
 
+# add total count that is sorted by the index to the df
+age_demographics_df['Total Count'] = categorized_by_age_df.value_counts().sort_index()
+# percent and formatting
+age_demographics_df['Percentage of Players'] = (categorized_by_age_df.value_counts(normalize=True)*100).map(fmt)
+
+# change the column order and display
+age_demographics_df = age_demographics_df[['Percentage of Players', 'Total Count']]
+age_demographics_df
 ```
 
 
@@ -304,7 +458,40 @@
 
 
 ```python
+# create a df for this portion
+purchase_analysis_df = pd.DataFrame()
 
+max_age_in_duplicates = df['Age'].max()
+# create new bins for this part
+bins_in_duplicates = [0,9,14,19,24,29,34,39,max_age_in_duplicates]
+# reuse the age category
+age_categories_in_duplicates = age_categories
+
+# categorize 
+categorized_by_age_in_duplicates_df = pd.cut(df['Age'],bins=bins_in_duplicates, labels=age_categories_in_duplicates, right=True)
+
+# purchase count
+purchase_analysis_df['Purchase Count'] = categorized_by_age_in_duplicates_df.value_counts().sort_index()
+
+# total purchase value by age categories
+purchase_analysis_df['Total Purchase Value'] = df.groupby(categorized_by_age_in_duplicates_df)['Price'].sum()
+
+# average purchase price
+purchase_analysis_df['Average Purchase Price'] = purchase_analysis_df['Total Purchase Value']/purchase_analysis_df['Purchase Count']
+
+# normalized totals by age demographics
+purchase_analysis_df['Normalized Totals'] = purchase_analysis_df['Total Purchase Value']/age_demographics_df['Total Count']
+
+# formatting
+purchase_analysis_df['Total Purchase Value'] = purchase_analysis_df['Total Purchase Value'].map(money_fmt)
+purchase_analysis_df['Average Purchase Price'] = purchase_analysis_df['Average Purchase Price'].map(money_fmt)
+purchase_analysis_df['Normalized Totals'] = purchase_analysis_df['Normalized Totals'].map(money_fmt)
+
+
+# change the column order and display
+purchase_analysis_df = purchase_analysis_df[['Purchase Count','Average Purchase Price', \
+                                            'Total Purchase Value','Normalized Totals']]
+purchase_analysis_df
 ```
 
 
@@ -335,6 +522,13 @@
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <th>&lt;10</th>
+      <td>28</td>
+      <td>$2.98</td>
+      <td>$83.46</td>
+      <td>$4.39</td>
+    </tr>
     <tr>
       <th>10-14</th>
       <td>35</td>
@@ -384,13 +578,6 @@
       <td>$53.75</td>
       <td>$4.89</td>
     </tr>
-    <tr>
-      <th>&lt;10</th>
-      <td>28</td>
-      <td>$2.98</td>
-      <td>$83.46</td>
-      <td>$4.39</td>
-    </tr>
   </tbody>
 </table>
 </div>
@@ -401,7 +588,31 @@
 
 
 ```python
+# create a new df
+top_spenders_df = pd.DataFrame()
+# group by SN
+group_by_SN_df = df.groupby(['SN'])
 
+# total purchase value
+total_purchase_value = group_by_SN_df['Price'].sum().sort_values(ascending=False).head(5)
+top_spenders_df['Total Purchase Value']  = total_purchase_value
+
+# purchase count
+top_total_purchase_sns =df[df['SN'].isin(total_purchase_value.index)]
+group_by_sns =top_total_purchase_sns.groupby(['SN'])
+purchase_count = group_by_sns['Item ID'].count()
+top_spenders_df['Purchase Count'] = purchase_count
+
+# average purchase price
+top_spenders_df['Average Purchase Price'] = total_purchase_value/purchase_count
+
+# formatting
+top_spenders_df['Average Purchase Price'] = top_spenders_df['Average Purchase Price'].map(money_fmt)
+top_spenders_df['Total Purchase Value']  = top_spenders_df['Total Purchase Value'] .map(money_fmt)
+
+# change the column order and display
+top_spenders_df = top_spenders_df[['Purchase Count','Average Purchase Price','Total Purchase Value']]
+top_spenders_df
 ```
 
 
@@ -477,7 +688,27 @@
 
 
 ```python
+group_by_id_and_name = df.groupby(['Item ID','Item Name'])
+# create a new df for this portion of code
+most_popular_items = pd.DataFrame()
+# purchase count
+purchase_count = group_by_id_and_name.count().sort_values('Price',ascending=False)['SN']
+most_popular_items['Purchase Count'] = purchase_count
 
+# total purchase value
+top_total_purchase_sns =df[df['Item ID'].isin(purchase_count.index.get_level_values(0))]
+group_by_sns =top_total_purchase_sns.groupby(['Item ID', 'Item Name'])
+total_purchase_value = group_by_sns['Price'].sum()
+
+# item price
+item_price = total_purchase_value/purchase_count
+
+# formatting
+most_popular_items['Item Price'] = item_price.map(money_fmt)
+most_popular_items['Total Purchase Value'] = total_purchase_value.map(money_fmt)
+
+# display top 5
+most_popular_items.head(5)
 ```
 
 
@@ -560,7 +791,29 @@
 
 
 ```python
+# create a new df
+most_profitable_items = pd.DataFrame()
 
+# purchase count
+top_total_purchase_sns =df[df['Item ID'].isin(most_profitable_total_purchase_value.index.get_level_values(0))] # 0 --> Item ID
+group_by_sns =top_total_purchase_sns.groupby(['Item ID', 'Item Name'])
+purchase_count = group_by_sns['Item ID'].count()
+
+# total purchase value
+most_profitable_total_purchase_value = group_by_id_and_name['Price'].sum().sort_values(ascending=False)
+most_profitable_items['Total Purchase Value'] = most_profitable_total_purchase_value
+
+# item price
+most_profitable_items['Item Price'] = most_profitable_total_purchase_value/purchase_count
+
+# formatting
+most_profitable_items['Purchase Count'] = purchase_count
+most_profitable_items['Item Price'] = most_profitable_items['Item Price'].map(money_fmt)
+most_profitable_items['Total Purchase Value'] = most_profitable_items['Total Purchase Value'].map(money_fmt)
+
+# change the column order and display the top 5
+most_profitable_items = most_profitable_items[['Purchase Count','Item Price','Total Purchase Value']]
+most_profitable_items.head(5)
 ```
 
 
